@@ -184,10 +184,10 @@
     <p class="hint">Upload a CSV, set details, export a PNG.</p>
 
     <label>Race title</label>
-    <input type="text" id="raceTitle" value="MSM Non-Qualifier">
+    <input type="text" id="raceTitle" value="RACE TITLE">
 
     <label>Subtitle (laps / type)</label>
-    <input type="text" id="raceSubtitle" value="20 Laps | Starting Lineup">
+    <input type="text" id="raceSubtitle" value="X Laps | Starting Lineup">
 
     <label>Lineup workbook (.xlsx)</label>
     <input type="file" id="xlsxInput" accept=".xlsx">
@@ -204,21 +204,23 @@
 
     <label>Series logo (top left)</label>
     <input type="file" id="seriesLogoInput" accept="image/*">
+    <div style="margin-top:6px;"><span class="sample-link" id="clearSeriesLogo">Clear series logo</span></div>
 
     <label>Sponsor logo (top left, next to series)</label>
     <input type="file" id="sponsorLogoInput" accept="image/*">
+    <div style="margin-top:6px;"><span class="sample-link" id="clearSponsorLogo">Clear sponsor logo</span></div>
 
     <div class="section-divider"></div>
 
     <label>Footer stat lines (one per line, optional)</label>
-    <input type="text" id="footerLine1" value="Quick Time: Kolby Vandenbergh (14.215)">
+    <input type="text" id="footerLine1" value="Sample Data">
     <div style="height:6px;"></div>
-    <input type="text" id="footerLine2" value="Heat Race Winners: Vandenbergh, Rickman, Ertel">
+    <input type="text" id="footerLine2" value="Sample Data">
 
     <label>Export dimensions</label>
     <select id="exportDims">
-      <option value="1080x1080">1080 x 1080 (Square)</option>
-      <option value="1080x1350" selected>1080 x 1350 (Portrait)</option>
+      <option value="1080x1080" selected>1080 x 1080 (Square)</option>
+      <option value="1080x1350">1080 x 1350 (Portrait)</option>
     </select>
 
     <button id="renderBtn">Render Graphic</button>
@@ -234,11 +236,11 @@
           <div class="header">
             <div class="logos">
               <img id="seriesLogoImg" src="assets/series-logo.png">
-              <img id="sponsorLogoImg" src="assets/sponsor-logo.png">
+              <img id="sponsorLogoImg" src="" style="display:none;">
             </div>
             <div class="title-block">
-              <h2 id="titleDisplay">MSM Non-Qualifier</h2>
-              <div class="sub" id="subtitleDisplay">20 Laps | Starting Lineup</div>
+              <h2 id="titleDisplay">RACE TITLE</h2>
+              <div class="sub" id="subtitleDisplay">X Laps | Starting Lineup</div>
             </div>
           </div>
           <div class="accent-bar"></div>
@@ -257,25 +259,25 @@
 
 <script>
 const SAMPLE_CSV = `start,number,competitor
-1,5S,Kolby Vandenbergh
-2,8L,Matthew Larson
-3,90,Brian Rickman
-4,3W,Brennon Willard
-5,128,Kylan Garner
-6,11H,Jeff Herzog
-7,1/4J,Jaxon Ertel
-8,0X,Jason Sivils
-9,8K,Tyler Kuykendall
-10,24C,Brandon Conkwright
-11,12,Scott Crigler
-12,7J,Ryan Johnson
-13,96,R.C. Whitwell
-14,18,Shannon Parker
-15,25B,Chevy Boyer
-16,78S,Steve Stultz
-17,66,Eli Ross
-18,4X,Dalon Helm
-19,96X,Dalton Imhoff`;
+1,00,First Name Last Name
+2,00,First Name Last Name
+3,00,First Name Last Name
+4,00,First Name Last Name
+5,00,First Name Last Name
+6,00,First Name Last Name
+7,00,First Name Last Name
+8,00,First Name Last Name
+9,00,First Name Last Name
+10,00,First Name Last Name
+11,00,First Name Last Name
+12,00,First Name Last Name
+13,00,First Name Last Name
+14,00,First Name Last Name
+15,00,First Name Last Name
+16,00,First Name Last Name
+17,00,First Name Last Name
+18,00,First Name Last Name
+19,00,First Name Last Name`;
 
 let currentData = [];
 
@@ -391,6 +393,18 @@ function setupImageInput(inputId, targetImgId) {
 }
 setupImageInput('seriesLogoInput', 'seriesLogoImg');
 setupImageInput('sponsorLogoInput', 'sponsorLogoImg');
+
+function setupClearLogo(buttonId, targetImgId, inputId) {
+  document.getElementById(buttonId).addEventListener('click', () => {
+    const img = document.getElementById(targetImgId);
+    img.src = '';
+    img.style.display = 'none';
+    document.getElementById(inputId).value = '';  // reset the file picker
+    renderGraphic();
+  });
+}
+setupClearLogo('clearSeriesLogo', 'seriesLogoImg', 'seriesLogoInput');
+setupClearLogo('clearSponsorLogo', 'sponsorLogoImg', 'sponsorLogoInput');
 
 document.getElementById('bgInput').addEventListener('change', (e) => {
   const file = e.target.files[0];
