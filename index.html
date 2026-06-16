@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Race Lineup Graphic Generator</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root { font-family: -apple-system, Helvetica, Arial, sans-serif; }
+  body { margin: 0; background: #f0f1f3; color: #1a1a1a; }
+
+  .app { display: flex; min-height: 100vh; }
+
+  /* ---- Controls panel ---- */
+  .panel {
+    width: 360px;
+    flex-shrink: 0;
+    background: #fff;
+    padding: 24px;
+    box-shadow: 2px 0 8px rgba(0,0,0,0.06);
+    overflow-y: auto;
+  }
+  .panel h1 { font-size: 18px; margin: 0 0 4px; }
+  .panel p.hint { font-size: 12px; color: #777; margin: 0 0 20px; }
+  .panel label { display: block; font-size: 12px; font-weight: 600; margin: 16px 0 6px; color: #444; }
+  .panel input[type="file"],
+  .panel input[type="text"],
+  .panel input[type="number"],
+  .panel select {
+    width: 100%; padding: 8px; box-sizing: border-box;
+    border: 1px solid #ccc; border-radius: 6px; font-size: 13px;
+    background: #fff; font-family: inherit;
+  }
+  .dims { display: flex; gap: 8px; }
+  .dims > div { flex: 1; }
+  .panel button {
+    width: 100%; margin-top: 20px; padding: 10px;
+    background: #c8102e; color: #fff; border: none; border-radius: 6px;
+    font-size: 14px; font-weight: 600; cursor: pointer;
+  }
+  .panel button:hover { background: #a30d25; }
+  .panel button.secondary { background: #fff; color: #c8102e; border: 1px solid #c8102e; }
+  .panel button.secondary:hover { background: #fdeaec; }
+  .sample-link { font-size: 12px; color: #c8102e; cursor: pointer; text-decoration: underline; }
+  .section-divider { border-top: 1px solid #eee; margin: 20px 0 0; }
+
+  /* ---- Preview area ---- */
+  .preview-wrap {
+    flex: 1;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 40px;
+    overflow: auto;
+  }
+  #stage-scaler { box-shadow: 0 4px 20px rgba(0,0,0,0.35); }
+
+  /* ---- The exported graphic itself ---- */
+  #graphic {
+    position: relative;
+    background-color: #111;
+    background-size: cover;
+    background-position: center;
+    overflow: hidden;
+    font-family: -apple-system, Helvetica, Arial, sans-serif;
+    color: #fff;
+  }
+  #graphic .bg-img {
+    position: absolute;
+    inset: 0;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    z-index: 0;
+  }
+  #graphic .scrim {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.55) 30%, rgba(0,0,0,0.72) 100%);
+    z-index: 1;
+  }
+  #graphic .content-layer {
+    position: relative;
+    z-index: 2;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+
+  #graphic .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 26px 40px 10px;
+  }
+  #graphic .logos { display: flex; align-items: center; gap: 22px; }
+  #graphic .logos img { height: 118px; object-fit: contain; }
+  #graphic .title-block { text-align: right; }
+  #graphic .title-block h2 {
+    margin: 0;
+    font-size: 54px;
+    font-weight: 800;
+    font-style: italic;
+    letter-spacing: 0.02em;
+    color: #fff;
+    text-transform: uppercase;
+    text-shadow: 0 2px 6px rgba(0,0,0,0.5);
+  }
+  #graphic .title-block .sub {
+    font-size: 24px;
+    font-weight: 600;
+    color: #e6394c;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    margin-top: 4px;
+  }
+
+  #graphic .accent-bar {
+    height: 4px;
+    background: linear-gradient(90deg, #c8102e 0%, #c8102e 60%, transparent 100%);
+    margin: 4px 40px 18px;
+  }
+
+  #graphic .rows {
+    flex: 1;
+    padding: 0 90px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: flex-start;
+    gap: 0.45em;
+    overflow: hidden;
+    text-align: left;
+  }
+  #graphic .row-line {
+    font-size: 21px;
+    font-weight: 700;
+    line-height: 1.25;
+    text-shadow: 0 1px 4px rgba(0,0,0,0.6);
+    text-align: left;
+    width: 100%;
+    white-space: nowrap;
+  }
+  #graphic .row-line .row-label {
+    color: #e6394c;
+    font-weight: 800;
+    margin-right: 6px;
+  }
+  #graphic .row-line .competitor-name { color: #fff; }
+  #graphic .row-line .sep { color: #e6394c; margin: 0 6px; }
+
+  #graphic .footer-info {
+    padding: 14px 44px 28px;
+    border-top: 1px solid rgba(255,255,255,0.25);
+    margin: 12px 44px 0;
+    padding-left: 0;
+    padding-right: 0;
+  }
+  #graphic .footer-info .label {
+    font-style: italic;
+    font-weight: 800;
+    text-transform: uppercase;
+    font-size: 18px;
+    text-decoration: underline;
+    margin-bottom: 8px;
+    color: #fff;
+  }
+  #graphic .footer-info .line {
+    font-size: 16px;
+    font-weight: 600;
+    color: #ddd;
+    margin-bottom: 3px;
+  }
+  #graphic .footer-info .line b { color: #fff; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="panel">
+    <h1>Race Lineup Graphic</h1>
+    <p class="hint">Upload a CSV, set details, export a PNG.</p>
+
+    <label>Race title</label>
+    <input type="text" id="raceTitle" value="MSM Non-Qualifier">
+
+    <label>Subtitle (laps / type)</label>
+    <input type="text" id="raceSubtitle" value="20 Laps | Starting Lineup">
+
+    <label>Lineup workbook (.xlsx)</label>
+    <input type="file" id="xlsxInput" accept=".xlsx">
+
+    <div id="raceSelectWrap" style="display:none;">
+      <label>Race</label>
+      <select id="raceSelect"></select>
+    </div>
+
+    <div class="section-divider"></div>
+
+    <label>Background image</label>
+    <input type="file" id="bgInput" accept="image/*">
+
+    <label>Series logo (top left)</label>
+    <input type="file" id="seriesLogoInput" accept="image/*">
+
+    <label>Sponsor logo (top left, next to series)</label>
+    <input type="file" id="sponsorLogoInput" accept="image/*">
+
+    <div class="section-divider"></div>
+
+    <label>Footer stat lines (one per line, optional)</label>
+    <input type="text" id="footerLine1" value="Quick Time: Kolby Vandenbergh (14.215)">
+    <div style="height:6px;"></div>
+    <input type="text" id="footerLine2" value="Heat Race Winners: Vandenbergh, Rickman, Ertel">
+
+    <label>Export dimensions</label>
+    <select id="exportDims">
+      <option value="1080x1080">1080 x 1080 (Square)</option>
+      <option value="1080x1350" selected>1080 x 1350 (Portrait)</option>
+    </select>
+
+    <button id="renderBtn">Render Graphic</button>
+    <button id="downloadBtn" class="secondary">Download PNG</button>
+  </div>
+
+  <div class="preview-wrap">
+    <div id="stage-scaler">
+      <div id="graphic">
+        <div class="bg-img" id="bgImg" style="background-image: url('assets/background.jpg?v=2');"></div>
+        <div class="scrim"></div>
+        <div class="content-layer">
+          <div class="header">
+            <div class="logos">
+              <img id="seriesLogoImg" src="assets/series-logo.png">
+              <img id="sponsorLogoImg" src="assets/sponsor-logo.png">
+            </div>
+            <div class="title-block">
+              <h2 id="titleDisplay">MSM Non-Qualifier</h2>
+              <div class="sub" id="subtitleDisplay">20 Laps | Starting Lineup</div>
+            </div>
+          </div>
+          <div class="accent-bar"></div>
+          <div class="rows" id="rowsBody"></div>
+          <div class="footer-info" id="footerInfo">
+            <div class="label">Tonight at a Glance</div>
+            <div class="line" id="footerLine1Display"></div>
+            <div class="line" id="footerLine2Display"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const SAMPLE_CSV = `start,number,competitor
+1,5S,Kolby Vandenbergh
+2,8L,Matthew Larson
+3,90,Brian Rickman
+4,3W,Brennon Willard
+5,128,Kylan Garner
+6,11H,Jeff Herzog
+7,1/4J,Jaxon Ertel
+8,0X,Jason Sivils
+9,8K,Tyler Kuykendall
+10,24C,Brandon Conkwright
+11,12,Scott Crigler
+12,7J,Ryan Johnson
+13,96,R.C. Whitwell
+14,18,Shannon Parker
+15,25B,Chevy Boyer
+16,78S,Steve Stultz
+17,66,Eli Ross
+18,4X,Dalon Helm
+19,96X,Dalton Imhoff`;
+
+let currentData = [];
+
+function parseCSVText(text) {
+  const result = Papa.parse(text, { header: true, skipEmptyLines: true });
+  currentData = result.data.map(r => ({
+    start: (r.start || '').trim(),
+    number: (r.number || '').trim(),
+    competitor: (r.competitor || '').trim(),
+  }));
+  renderGraphic();
+}
+
+// Workbook rows grouped by Race, preserving each row's position within
+// its group as the starting order (no explicit "start" column needed).
+let racesFromWorkbook = {};
+
+document.getElementById('xlsxInput').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (evt) => {
+    const workbook = XLSX.read(evt.target.result, { type: 'array' });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+
+    racesFromWorkbook = {};
+    rows.forEach(row => {
+      const raceName = String(row['Race'] || '').trim();
+      if (!raceName) return;
+      if (!racesFromWorkbook[raceName]) racesFromWorkbook[raceName] = [];
+      racesFromWorkbook[raceName].push({
+        number: String(row['#'] || '').trim(),
+        competitor: `${String(row['First Name'] || '').trim()} ${String(row['Last Name'] || '').trim()}`.trim(),
+      });
+    });
+
+    const raceSelect = document.getElementById('raceSelect');
+    raceSelect.innerHTML = '';
+    Object.keys(racesFromWorkbook).forEach(raceName => {
+      const opt = document.createElement('option');
+      opt.value = raceName;
+      opt.textContent = raceName;
+      raceSelect.appendChild(opt);
+    });
+    document.getElementById('raceSelectWrap').style.display = 'block';
+
+    loadRaceFromWorkbook(raceSelect.value);
+  };
+  reader.readAsArrayBuffer(file);
+});
+
+document.getElementById('raceSelect').addEventListener('change', (e) => {
+  loadRaceFromWorkbook(e.target.value);
+});
+
+// Auto-match a sponsor logo from keywords found in the race name.
+// Add new races/logos here as files are built out — keys are matched
+// case-insensitively against the race name, first match wins.
+const SPONSOR_LOGO_MAP = {
+  'non-qualifier': 'assets/sponsor-logo.png',
+  'msm': 'assets/sponsor-logo.png',
+  'fast shafts': 'assets/sponsors/fast-shafts.png',
+  'unoh': 'assets/sponsors/unoh.png',
+  'penske shocks': 'assets/sponsors/penske-shocks.png',
+  'summit racing': 'assets/sponsors/summit-racing.png',
+  'simpson race products': 'assets/sponsors/simpson.png',
+  'myracepass': 'assets/sponsors/myracepass.png',
+  'cool-it thermo tec': 'assets/sponsors/cool-it.png',
+};
+
+function applySponsorLogoForRace(raceName) {
+  const lower = raceName.toLowerCase();
+  const matchKey = Object.keys(SPONSOR_LOGO_MAP).find(key => lower.includes(key));
+  const sponsorImg = document.getElementById('sponsorLogoImg');
+  if (matchKey) {
+    sponsorImg.onerror = () => { sponsorImg.style.display = 'none'; };
+    sponsorImg.style.display = '';
+    sponsorImg.src = SPONSOR_LOGO_MAP[matchKey];
+  } else {
+    sponsorImg.style.display = 'none';
+  }
+}
+
+function loadRaceFromWorkbook(raceName) {
+  const entries = racesFromWorkbook[raceName];
+  if (!entries) return;
+  currentData = entries.map((entry, i) => ({
+    start: String(i + 1),
+    number: entry.number,
+    competitor: entry.competitor,
+  }));
+  document.getElementById('raceTitle').value = raceName;
+  applySponsorLogoForRace(raceName);
+  renderGraphic();
+}
+
+function setupImageInput(inputId, targetImgId) {
+  document.getElementById(inputId).addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      document.getElementById(targetImgId).src = evt.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+setupImageInput('seriesLogoInput', 'seriesLogoImg');
+setupImageInput('sponsorLogoInput', 'sponsorLogoImg');
+
+document.getElementById('bgInput').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (evt) => {
+    grayscaleImageDataUrl(evt.target.result, (processedDataUrl) => {
+      document.getElementById('bgImg').style.backgroundImage = `url('${processedDataUrl}')`;
+    });
+  };
+  reader.readAsDataURL(file);
+});
+
+// Any uploaded background gets converted to actual grayscale pixels here,
+// because html2canvas does not reliably honor the CSS `filter` property
+// at export time (it would look right in the live preview but not in the PNG).
+function grayscaleImageDataUrl(dataUrl, callback) {
+  const img = new Image();
+  img.onload = () => {
+    const canvas = document.createElement('canvas');
+    canvas.width = img.naturalWidth;
+    canvas.height = img.naturalHeight;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0);
+
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const data = imageData.data;
+    for (let i = 0; i < data.length; i += 4) {
+      const gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+      data[i] = data[i + 1] = data[i + 2] = gray;
+    }
+    ctx.putImageData(imageData, 0, 0);
+    callback(canvas.toDataURL('image/jpeg', 0.92));
+  };
+  img.src = dataUrl;
+}
+
+function renderGraphic() {
+  document.getElementById('titleDisplay').textContent = document.getElementById('raceTitle').value;
+  document.getElementById('subtitleDisplay').textContent = document.getElementById('raceSubtitle').value;
+  document.getElementById('footerLine1Display').innerHTML = document.getElementById('footerLine1').value;
+  document.getElementById('footerLine2Display').innerHTML = document.getElementById('footerLine2').value;
+
+  const [dimsW, dimsH] = document.getElementById('exportDims').value.split('x');
+  const w = parseInt(dimsW, 10) || 1080;
+  const h = parseInt(dimsH, 10) || 1350;
+  const graphic = document.getElementById('graphic');
+  graphic.style.width = w + 'px';
+  graphic.style.height = h + 'px';
+
+  const rowsBody = document.getElementById('rowsBody');
+  rowsBody.innerHTML = '';
+  const rowCount = Math.ceil(currentData.length / 2);
+  for (let i = 0; i < rowCount; i++) {
+    const a = currentData[i * 2];
+    const b = currentData[i * 2 + 1];
+    const div = document.createElement('div');
+    div.className = 'row-line';
+    let html = `<span class="row-label">ROW ${i + 1}:</span>`;
+    html += `<span class="competitor-name">${a.number} ${a.competitor}</span>`;
+    if (b) {
+      html += `<span class="sep">|</span><span class="competitor-name">${b.number} ${b.competitor}</span>`;
+    }
+    div.innerHTML = html;
+    rowsBody.appendChild(div);
+  }
+
+  fitRowsText();
+}
+
+function fitRowsText() {
+  const rowsBody = document.getElementById('rowsBody');
+  const lines = rowsBody.querySelectorAll('.row-line');
+  if (!lines.length) return;
+
+  // lines have width:100%, sized against rowsBody's content box (after
+  // its own padding), independent of font-size — safe to read once.
+  const availableWidth = lines[0].clientWidth;
+  const availableHeight = rowsBody.clientHeight;
+  const gapEm = 0.45;
+  const lineHeight = 1.25;
+
+  let fontSize = 70;
+  const minFontSize = 14;
+
+  while (fontSize > minFontSize) {
+    const lineBlockHeight = fontSize * lineHeight;
+    const gapPx = fontSize * gapEm;
+    const totalHeight = lines.length * lineBlockHeight + (lines.length - 1) * gapPx;
+
+    lines.forEach(el => { el.style.fontSize = fontSize + 'px'; });
+    let widestLine = 0;
+    lines.forEach(el => { widestLine = Math.max(widestLine, el.scrollWidth); });
+
+    if (totalHeight <= availableHeight && widestLine <= availableWidth) break;
+    fontSize -= 1;
+  }
+
+  lines.forEach(el => { el.style.fontSize = fontSize + 'px'; });
+}
+
+document.getElementById('renderBtn').addEventListener('click', renderGraphic);
+document.getElementById('exportDims').addEventListener('change', renderGraphic);
+
+document.getElementById('downloadBtn').addEventListener('click', () => {
+  const graphic = document.getElementById('graphic');
+  html2canvas(graphic, {
+    width: graphic.offsetWidth,
+    height: graphic.offsetHeight,
+    scale: 1,
+    useCORS: true,
+  }).then(canvas => {
+    const link = document.createElement('a');
+    link.download = (document.getElementById('raceTitle').value || 'race-graphic').replace(/\s+/g, '_') + '.png';
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+  });
+});
+
+parseCSVText(SAMPLE_CSV);
+</script>
+</body>
+</html>
