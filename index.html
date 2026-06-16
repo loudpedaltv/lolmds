@@ -152,11 +152,14 @@
   #graphic .row-line .sep { color: #e6394c; margin: 0 6px; }
 
   #graphic .footer-info {
-    padding: 14px 44px 28px;
+    padding: 14px 44px 24px;
     border-top: 1px solid rgba(255,255,255,0.25);
     margin: 12px 44px 0;
     padding-left: 0;
     padding-right: 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
   }
   #graphic .footer-info .label {
     font-style: italic;
@@ -174,6 +177,13 @@
     margin-bottom: 3px;
   }
   #graphic .footer-info .line b { color: #fff; }
+
+  #graphic .live-on-logo {
+    height: 80px;
+    object-fit: contain;
+    flex-shrink: 0;
+    margin-left: 24px;
+  }
 </style>
 </head>
 <body>
@@ -246,9 +256,12 @@
           <div class="accent-bar"></div>
           <div class="rows" id="rowsBody"></div>
           <div class="footer-info" id="footerInfo">
-            <div class="label">Tonight at a Glance</div>
-            <div class="line" id="footerLine1Display"></div>
-            <div class="line" id="footerLine2Display"></div>
+            <div class="footer-text">
+              <div class="label">Tonight at a Glance</div>
+              <div class="line" id="footerLine1Display"></div>
+              <div class="line" id="footerLine2Display"></div>
+            </div>
+            <img class="live-on-logo" src="assets/live-on-floracing.png">
           </div>
         </div>
       </div>
