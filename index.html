@@ -94,12 +94,13 @@
     justify-content: space-between;
     padding: 26px 40px 10px;
   }
-  #graphic .logos { display: flex; align-items: center; gap: 22px; }
+  #graphic .logos { display: flex; align-items: center; gap: 22px; flex-shrink: 0; }
   #graphic .logos img { height: 118px; object-fit: contain; }
-  #graphic .title-block { text-align: right; }
+  #graphic .title-block { text-align: right; flex: 1; min-width: 0; padding-left: 24px; }
   #graphic .title-block h2 {
     margin: 0;
     font-size: 54px;
+    white-space: nowrap;
     font-weight: 800;
     font-style: italic;
     letter-spacing: 0.02em;
@@ -378,7 +379,12 @@ function setupImageInput(inputId, targetImgId) {
     if (!file) return;
     const reader = new FileReader();
     reader.onload = (evt) => {
-      document.getElementById(targetImgId).src = evt.target.result;
+      const img = document.getElementById(targetImgId);
+      img.style.display = '';   // a manual upload always overrides any auto-hide
+      // logo width (and thus the title's available space) is only known once
+      // the new image has actually loaded, so re-fit on load.
+      img.onload = renderGraphic;
+      img.src = evt.target.result;
     };
     reader.readAsDataURL(file);
   });
@@ -452,7 +458,28 @@ function renderGraphic() {
     rowsBody.appendChild(div);
   }
 
+  fitTitleText();
   fitRowsText();
+}
+
+// Shrink the race title so it never overruns the space left of it by the
+// logos. title-block is flex:remaining-width with min-width:0, so its own
+// clientWidth is exactly the room available next to the (non-shrinking) logos.
+function fitTitleText() {
+  const title = document.getElementById('titleDisplay');
+  const block = document.querySelector('#graphic .title-block');
+  if (!title || !block) return;
+
+  const maxFont = 54;
+  const minFont = 22;
+  const available = block.clientWidth - parseFloat(getComputedStyle(block).paddingLeft);
+
+  let fontSize = maxFont;
+  title.style.fontSize = fontSize + 'px';
+  while (title.scrollWidth > available && fontSize > minFont) {
+    fontSize -= 1;
+    title.style.fontSize = fontSize + 'px';
+  }
 }
 
 function fitRowsText() {
@@ -488,6 +515,11 @@ function fitRowsText() {
 
 document.getElementById('renderBtn').addEventListener('click', renderGraphic);
 document.getElementById('exportDims').addEventListener('change', renderGraphic);
+
+// Live-update the graphic as any text field is edited.
+['raceTitle', 'raceSubtitle', 'footerLine1', 'footerLine2'].forEach(id => {
+  document.getElementById(id).addEventListener('input', renderGraphic);
+});
 
 document.getElementById('downloadBtn').addEventListener('click', () => {
   const graphic = document.getElementById('graphic');
