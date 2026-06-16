@@ -6,8 +6,44 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,700;0,900;1,900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://use.typekit.net/xvv2lut.css">
 <style>
-  :root { font-family: -apple-system, Helvetica, Arial, sans-serif; }
+  /* ---- Brand fonts (FloSports) ----
+     Drop the licensed web font files into assets/fonts/ with these exact
+     names and they load automatically. Until then the stack falls back to
+     Inter / system per DESIGN.md. Indivisible = marquee titles, Uni Neue =
+     everything else. */
+  @font-face {
+    font-family: 'Uni Neue';
+    src: url('assets/fonts/Fontfabric - UniNeueBold.ttf') format('truetype');
+    font-weight: 700; font-style: normal; font-display: swap;
+  }
+  @font-face {
+    font-family: 'Uni Neue';
+    src: url('assets/fonts/Fontfabric - UniNeueRegular.ttf') format('truetype');
+    font-weight: 400; font-style: normal; font-display: swap;
+  }
+  @font-face {
+    font-family: 'Uni Neue';
+    src: url('assets/fonts/Fontfabric - UniNeueHeavy-Italic.ttf') format('truetype');
+    font-weight: 900; font-style: italic; font-display: swap;
+  }
+  /* Indivisible (Black 900) is served by Adobe Fonts via the Typekit
+     <link> in <head> under the family name "indivisible". */
+
+  :root {
+    /* FloSports palette — DESIGN.md */
+    --ignite-red: #FF140F;     /* master accent, on dark surfaces */
+    --flo-black: #121212;      /* foundation surface */
+    --cool-grey: #939396;      /* borders, dividers, metadata */
+    --dark-grey: #222222;
+    --font-display: 'indivisible', 'Uni Neue', Inter, "Helvetica Neue", Arial, sans-serif;
+    --font-body: 'Uni Neue', Inter, "Helvetica Neue", Arial, sans-serif;
+    font-family: var(--font-body);
+  }
   body { margin: 0; background: #f0f1f3; color: #1a1a1a; }
 
   .app { display: flex; min-height: 100vh; }
@@ -29,20 +65,20 @@
   .panel input[type="number"],
   .panel select {
     width: 100%; padding: 8px; box-sizing: border-box;
-    border: 1px solid #ccc; border-radius: 6px; font-size: 13px;
+    border: 1px solid #ccc; border-radius: 2px; font-size: 13px;
     background: #fff; font-family: inherit;
   }
   .dims { display: flex; gap: 8px; }
   .dims > div { flex: 1; }
   .panel button {
     width: 100%; margin-top: 20px; padding: 10px;
-    background: #c8102e; color: #fff; border: none; border-radius: 6px;
-    font-size: 14px; font-weight: 600; cursor: pointer;
+    background: #ED2925; color: #fff; border: none; border-radius: 4px;
+    font-size: 14px; font-weight: 700; cursor: pointer;
   }
-  .panel button:hover { background: #a30d25; }
-  .panel button.secondary { background: #fff; color: #c8102e; border: 1px solid #c8102e; }
+  .panel button:hover { background: #c61f1c; }
+  .panel button.secondary { background: #fff; color: #ED2925; border: 1px solid #ED2925; }
   .panel button.secondary:hover { background: #fdeaec; }
-  .sample-link { font-size: 12px; color: #c8102e; cursor: pointer; text-decoration: underline; }
+  .sample-link { font-size: 12px; color: #ED2925; cursor: pointer; text-decoration: underline; }
   .section-divider { border-top: 1px solid #eee; margin: 20px 0 0; }
 
   /* ---- Preview area ---- */
@@ -59,11 +95,11 @@
   /* ---- The exported graphic itself ---- */
   #graphic {
     position: relative;
-    background-color: #111;
+    background-color: var(--flo-black);
     background-size: cover;
     background-position: center;
     overflow: hidden;
-    font-family: -apple-system, Helvetica, Arial, sans-serif;
+    font-family: var(--font-body);
     color: #fff;
   }
   #graphic .bg-img {
@@ -99,28 +135,33 @@
   #graphic .title-block { text-align: right; flex: 1; min-width: 0; padding-left: 24px; }
   #graphic .title-block h2 {
     margin: 0;
+    font-family: var(--font-display);
     font-size: 54px;
     white-space: nowrap;
-    font-weight: 800;
+    font-weight: 900;
     font-style: italic;
-    letter-spacing: 0.02em;
+    letter-spacing: -0.01em;
     color: #fff;
     text-transform: uppercase;
-    text-shadow: 0 2px 6px rgba(0,0,0,0.5);
+    text-shadow: 2px 2px 0 rgba(0,0,0,0.55);
   }
   #graphic .title-block .sub {
     font-size: 24px;
-    font-weight: 600;
-    color: #e6394c;
+    font-weight: 900;
+    font-style: italic;
+    color: var(--ignite-red);
     text-transform: uppercase;
     letter-spacing: 0.03em;
     margin-top: 4px;
   }
 
+  /* 10deg forward-lean accent (Flo momentum motif), Ignite Red */
   #graphic .accent-bar {
-    height: 4px;
-    background: linear-gradient(90deg, #c8102e 0%, #c8102e 60%, transparent 100%);
-    margin: 4px 40px 18px;
+    height: 6px;
+    width: 220px;
+    background: var(--ignite-red);
+    margin: 6px 40px 18px;
+    transform: skewX(-10deg);
   }
 
   #graphic .rows {
@@ -138,22 +179,23 @@
     font-size: 21px;
     font-weight: 700;
     line-height: 1.25;
-    text-shadow: 0 1px 4px rgba(0,0,0,0.6);
+    text-shadow: 1px 1px 0 rgba(0,0,0,0.7);
     text-align: left;
     width: 100%;
     white-space: nowrap;
   }
   #graphic .row-line .row-label {
-    color: #e6394c;
-    font-weight: 800;
+    color: var(--ignite-red);
+    font-weight: 900;
+    font-style: italic;
     margin-right: 6px;
   }
   #graphic .row-line .competitor-name { color: #fff; }
-  #graphic .row-line .sep { color: #e6394c; margin: 0 6px; }
+  #graphic .row-line .sep { color: var(--cool-grey); margin: 0 6px; }
 
   #graphic .footer-info {
     padding: 14px 44px 24px;
-    border-top: 1px solid rgba(255,255,255,0.25);
+    border-top: 1px solid rgba(147,147,150,0.45);  /* Cool Grey @ 45% */
     margin: 12px 44px 0;
     padding-left: 0;
     padding-right: 0;
@@ -163,17 +205,17 @@
   }
   #graphic .footer-info .label {
     font-style: italic;
-    font-weight: 800;
+    font-weight: 900;
     text-transform: uppercase;
     font-size: 18px;
-    text-decoration: underline;
+    letter-spacing: 0.04em;
     margin-bottom: 8px;
     color: #fff;
   }
   #graphic .footer-info .line {
     font-size: 16px;
-    font-weight: 600;
-    color: #ddd;
+    font-weight: 400;
+    color: var(--cool-grey);
     margin-bottom: 3px;
   }
   #graphic .footer-info .line b { color: #fff; }
@@ -191,7 +233,7 @@
 
   <div class="panel">
     <h1>Race Lineup Graphic</h1>
-    <p class="hint">Upload a CSV, set details, export a PNG.</p>
+    <p class="hint">Upload a workbook, pick a race, export a PNG.</p>
 
     <label>Race title</label>
     <input type="text" id="raceTitle" value="RACE TITLE">
