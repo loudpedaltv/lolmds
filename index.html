@@ -116,9 +116,19 @@
     background: linear-gradient(180deg, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.55) 30%, rgba(0,0,0,0.72) 100%);
     z-index: 1;
   }
+  #graphic .texture-layer {
+    position: absolute;
+    inset: 0;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    pointer-events: none;
+    opacity: 0;
+    z-index: 2;
+  }
   #graphic .content-layer {
     position: relative;
-    z-index: 2;
+    z-index: 3;
     height: 100%;
     display: flex;
     flex-direction: column;
@@ -185,11 +195,13 @@
     white-space: nowrap;
   }
   #graphic .row-line .row-label {
+    display: inline-block;
     color: var(--ignite-red);
     font-weight: 900;
     font-style: italic;
     margin-right: 6px;
   }
+  #graphic .row-line .name1 { display: inline-block; }
   #graphic .row-line .competitor-name { color: #fff; }
   #graphic .row-line .sep { color: var(--cool-grey); margin: 0 6px; }
 
@@ -269,6 +281,13 @@
     <div style="height:6px;"></div>
     <input type="text" id="footerLine2" value="Sample Data">
 
+    <label>Texture overlay</label>
+    <select id="textureSelect">
+      <option value="" selected>None</option>
+      <option value="grit">Grit / Dust</option>
+      <option value="halftone">Halftone</option>
+    </select>
+
     <label>Export dimensions</label>
     <select id="exportDims">
       <option value="1080x1080" selected>1080 x 1080 (Square)</option>
@@ -283,7 +302,8 @@
     <div id="stage-scaler">
       <div id="graphic">
         <div class="bg-img" id="bgImg" style="background-image: url('assets/background.jpg?v=2');"></div>
-        <div class="scrim"></div>
+        <div class="scrim" id="scrim"></div>
+        <div class="texture-layer" id="textureLayer"></div>
         <div class="content-layer">
           <div class="header">
             <div class="logos">
@@ -467,7 +487,7 @@ document.getElementById('bgInput').addEventListener('change', (e) => {
   const reader = new FileReader();
   reader.onload = (evt) => {
     grayscaleImageDataUrl(evt.target.result, (processedDataUrl) => {
-      document.getElementById('bgImg').style.backgroundImage = `url('${processedDataUrl}')`;
+      setBackground(processedDataUrl);
     });
   };
   reader.readAsDataURL(file);
@@ -518,8 +538,7 @@ function renderGraphic() {
     const b = currentData[i * 2 + 1];
     const div = document.createElement('div');
     div.className = 'row-line';
-    let html = `<span class="row-label">ROW ${i + 1}:</span>`;
-    html += `<span class="competitor-name">${a.number} ${a.competitor}</span>`;
+    let html = `<span class="row-label">ROW ${i + 1}:</span><span class="competitor-name name1">${a.number} ${a.competitor}</span>`;
     if (b) {
       html += `<span class="sep">|</span><span class="competitor-name">${b.number} ${b.competitor}</span>`;
     }
@@ -551,6 +570,23 @@ function fitTitleText() {
   }
 }
 
+// Give the row labels a uniform width and the first-driver names a uniform
+// width, so the number/name start at the same x and the center "|" aligns
+// down every row while sitting snug (equal gap) next to each name.
+function alignColumns(lines) {
+  const widthOf = (sel) => {
+    let w = 0;
+    lines.forEach(el => { const c = el.querySelector(sel); if (c) { c.style.width = 'auto'; w = Math.max(w, c.scrollWidth); } });
+    return w;
+  };
+  const labelW = widthOf('.row-label');
+  const name1W = widthOf('.name1');
+  lines.forEach(el => {
+    const lbl = el.querySelector('.row-label'); if (lbl) lbl.style.width = labelW + 'px';
+    const n1 = el.querySelector('.name1'); if (n1) n1.style.width = name1W + 'px';
+  });
+}
+
 function fitRowsText() {
   const rowsBody = document.getElementById('rowsBody');
   const lines = rowsBody.querySelectorAll('.row-line');
@@ -572,6 +608,7 @@ function fitRowsText() {
     const totalHeight = lines.length * lineBlockHeight + (lines.length - 1) * gapPx;
 
     lines.forEach(el => { el.style.fontSize = fontSize + 'px'; });
+    alignColumns(lines);
     let widestLine = 0;
     lines.forEach(el => { widestLine = Math.max(widestLine, el.scrollWidth); });
 
@@ -580,6 +617,128 @@ function fitRowsText() {
   }
 
   lines.forEach(el => { el.style.fontSize = fontSize + 'px'; });
+  alignColumns(lines);
+}
+
+// The grayscale background source the treatments build from (asset URL or data URL).
+let baseBgSrc = "assets/background.jpg?v=2";
+let halftoneCache = { from: null, url: null };
+
+function setBackground(src) {
+  baseBgSrc = src;
+  halftoneCache = { from: null, url: null };  // invalidate so halftone re-renders
+  applyTexture();
+}
+
+const GRIT_DARK = 'assets/textures/grit_dark.png?v=5';
+const GRIT_MULT = 1.0;   // multiply pass — dark grit/scuffs over the photo
+let gritCache = { from: null, url: null };
+
+function applyTexture() {
+  const choice = document.getElementById('textureSelect').value;
+  const layer = document.getElementById('textureLayer');
+  const bgImg = document.getElementById('bgImg');
+
+  // The free-floating overlay layer is retired — grit and halftone are now both
+  // baked into the background pixels so they render/export consistently.
+  layer.style.backgroundImage = 'none';
+  layer.style.opacity = 0;
+
+  // Halftone already bakes in deep blacks, so back the scrim way off to avoid
+  // double-darkening; other treatments keep the full scrim for text contrast.
+  const scrim = document.getElementById('scrim');
+  if (choice === 'halftone') {
+    scrim.style.background = 'linear-gradient(180deg, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.12) 30%, rgba(0,0,0,0.40) 100%)';
+  } else if (choice === 'grit') {
+    scrim.style.background = 'linear-gradient(180deg, rgba(0,0,0,0.62) 0%, rgba(0,0,0,0.32) 30%, rgba(0,0,0,0.52) 100%)';
+  } else {
+    scrim.style.background = 'linear-gradient(180deg, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.55) 30%, rgba(0,0,0,0.72) 100%)';
+  }
+
+  const setBg = (url) => { bgImg.style.backgroundImage = `url('${url}')`; };
+
+  if (choice === 'halftone') {
+    if (halftoneCache.from === baseBgSrc && halftoneCache.url) setBg(halftoneCache.url);
+    else halftoneDataUrl(baseBgSrc, (url) => { halftoneCache = { from: baseBgSrc, url }; setBg(url); });
+  } else if (choice === 'grit') {
+    if (gritCache.from === baseBgSrc && gritCache.url) setBg(gritCache.url);
+    else gritDataUrl(baseBgSrc, (url) => { gritCache = { from: baseBgSrc, url }; setBg(url); });
+  } else {
+    setBg(baseBgSrc);
+  }
+}
+document.getElementById('textureSelect').addEventListener('change', applyTexture);
+
+// Composite the grit/dust texture onto the background with a screen blend, baked
+// to pixels so it shows on any tone and survives html2canvas export.
+function gritDataUrl(src, callback) {
+  const base = new Image();
+  base.onload = () => {
+    const W = base.naturalWidth, H = base.naturalHeight;
+    const canvas = document.createElement('canvas');
+    canvas.width = W; canvas.height = H;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(base, 0, 0, W, H);
+    const drawCover = (img, mode, alpha) => {
+      const s = Math.max(W / img.naturalWidth, H / img.naturalHeight);
+      const gw = img.naturalWidth * s, gh = img.naturalHeight * s;
+      ctx.globalCompositeOperation = mode;
+      ctx.globalAlpha = alpha;
+      ctx.drawImage(img, (W - gw) / 2, (H - gh) / 2, gw, gh);
+    };
+    const dark = new Image();
+    dark.onload = () => {
+      drawCover(dark, 'multiply', GRIT_MULT);   // dark grit/scuffs over the photo
+      ctx.globalAlpha = 1;
+      ctx.globalCompositeOperation = 'source-over';
+      callback(canvas.toDataURL('image/jpeg', 0.92));
+    };
+    dark.src = GRIT_DARK;
+  };
+  base.src = src;
+}
+
+// Render an image as a straight-grid halftone: light dots on a near-black field,
+// dot size driven by local brightness. Axis-aligned (no rotation) so the dots line
+// up cleanly with no diagonal jaggies. Baked to pixels so html2canvas exports it.
+function halftoneDataUrl(src, callback) {
+  const img = new Image();
+  img.onload = () => {
+    const maxW = 1400;
+    const scale = Math.min(1, maxW / img.naturalWidth);
+    const W = Math.round(img.naturalWidth * scale);
+    const H = Math.round(img.naturalHeight * scale);
+    const sc = document.createElement('canvas');
+    sc.width = W; sc.height = H;
+    const sctx = sc.getContext('2d');
+    sctx.drawImage(img, 0, 0, W, H);
+    const d = sctx.getImageData(0, 0, W, H).data;
+    const lum = (x, y) => {
+      x = Math.max(0, Math.min(W - 1, x | 0));
+      y = Math.max(0, Math.min(H - 1, y | 0));
+      const i = (y * W + x) * 4;
+      return (d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114) / 255;
+    };
+    const out = document.createElement('canvas');
+    out.width = W; out.height = H;
+    const o = out.getContext('2d');
+    o.fillStyle = '#181818';
+    o.fillRect(0, 0, W, H);
+    o.fillStyle = '#e4e4e4';
+    // Straight grid; cell=4 gives clear gaps; gamma 1.0 keeps the image readable.
+    const cell = 4, mult = 0.95, gamma = 1.0, lo = 0.05, hi = 0.98;
+    for (let gy = 0; gy < H; gy += cell) {
+      for (let gx = 0; gx < W; gx += cell) {
+        const cxp = gx + cell / 2, cyp = gy + cell / 2;
+        let t = Math.min(1, Math.max(0, (lum(cxp, cyp) - lo) / (hi - lo)));
+        t = Math.pow(t, gamma);
+        const r = t * (cell / 2) * mult;
+        if (r > 0.3) { o.beginPath(); o.arc(cxp, cyp, r, 0, 7); o.fill(); }
+      }
+    }
+    callback(out.toDataURL('image/jpeg', 0.92));
+  };
+  img.src = src;
 }
 
 document.getElementById('renderBtn').addEventListener('click', renderGraphic);
@@ -606,6 +765,7 @@ document.getElementById('downloadBtn').addEventListener('click', () => {
 });
 
 parseCSVText(SAMPLE_CSV);
+applyTexture();
 </script>
 </body>
 </html>
