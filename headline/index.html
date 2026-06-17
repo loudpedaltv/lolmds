@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Headline Graphic Generator</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,700;0,900;1,900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://use.typekit.net/xvv2lut.css">
+<style>
+  @font-face {
+    font-family: 'Uni Neue';
+    src: url('../assets/fonts/Fontfabric - UniNeueBold.ttf') format('truetype');
+    font-weight: 700; font-style: normal; font-display: swap;
+  }
+  @font-face {
+    font-family: 'Uni Neue';
+    src: url('../assets/fonts/Fontfabric - UniNeueRegular.ttf') format('truetype');
+    font-weight: 400; font-style: normal; font-display: swap;
+  }
+  @font-face {
+    font-family: 'Uni Neue';
+    src: url('../assets/fonts/Fontfabric - UniNeueHeavy-Italic.ttf') format('truetype');
+    font-weight: 900; font-style: italic; font-display: swap;
+  }
+
+  :root {
+    --ignite-red: #FF140F;
+    --flo-black: #121212;
+    --cool-grey: #939396;
+    --font-display: 'indivisible', 'Uni Neue', Inter, "Helvetica Neue", Arial, sans-serif;
+    --font-body: 'Uni Neue', Inter, "Helvetica Neue", Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #f0f1f3; color: #1a1a1a; font-family: var(--font-body); }
+  .app { display: flex; min-height: 100vh; }
+
+  /* ---- Controls panel ---- */
+  .panel {
+    width: 360px; flex-shrink: 0; background: #fff; padding: 24px;
+    box-shadow: 2px 0 8px rgba(0,0,0,0.06); overflow-y: auto; height: 100vh;
+  }
+  .panel .back { font-size: 12px; color: var(--cool-grey); text-decoration: none; }
+  .panel h1 { font-size: 18px; margin: 8px 0 4px; }
+  .panel p.hint { font-size: 12px; color: #777; margin: 0 0 20px; }
+  .panel label { display: block; font-size: 12px; font-weight: 600; margin: 16px 0 6px; color: #444; }
+  .panel textarea, .panel input[type="file"], .panel input[type="text"], .panel select {
+    width: 100%; padding: 8px; box-sizing: border-box;
+    border: 1px solid #ccc; border-radius: 2px; font-size: 13px; background: #fff; font-family: inherit;
+  }
+  .panel textarea { resize: vertical; min-height: 70px; line-height: 1.3; }
+  .panel input[type="range"] { width: 100%; }
+  .panel button {
+    width: 100%; margin-top: 20px; padding: 10px; background: #ED2925; color: #fff;
+    border: none; border-radius: 4px; font-size: 14px; font-weight: 700; cursor: pointer;
+  }
+  .panel button:hover { background: #c61f1c; }
+  .panel button.secondary { background: #fff; color: #ED2925; border: 1px solid #ED2925; }
+  .panel button.secondary:hover { background: #fdeaec; }
+  .link { font-size: 12px; color: #ED2925; cursor: pointer; text-decoration: underline; }
+  .section-divider { border-top: 1px solid #eee; margin: 20px 0 0; }
+  .rangelabel { display: flex; justify-content: space-between; font-size: 12px; color: #444; font-weight: 600; margin: 16px 0 6px; }
+
+  /* ---- Preview area ---- */
+  .preview-wrap { position: relative; flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding: 32px; overflow: auto; gap: 14px; }
+  #stage-frame { box-shadow: 0 4px 20px rgba(0,0,0,0.35); flex-shrink: 0; overflow: hidden; }
+  #stage-scaler { transform-origin: top left; }
+  .zoom-controls {
+    display: flex; align-items: center; gap: 2px; background: rgba(20,20,20,0.9);
+    border-radius: 6px; padding: 4px; z-index: 10; box-shadow: 0 2px 10px rgba(0,0,0,0.3); flex-shrink: 0;
+  }
+  .zoom-controls button {
+    width: 34px; height: 30px; border: none; background: transparent; color: #fff;
+    font-size: 17px; font-weight: 700; cursor: pointer; border-radius: 4px;
+  }
+  .zoom-controls button:hover { background: rgba(255,255,255,0.14); }
+  .zoom-controls .fit { width: auto; padding: 0 12px; font-size: 12px; letter-spacing: 0.05em; text-transform: uppercase; }
+
+  /* ---- The exported graphic ---- */
+  #graphic {
+    position: relative; width: 1080px; height: 1350px;
+    background-color: var(--flo-black); overflow: hidden; color: #fff; cursor: grab;
+  }
+  #graphic.dragging { cursor: grabbing; }
+  #graphic .photo {
+    position: absolute; inset: 0; background-size: cover; background-position: center;
+    background-repeat: no-repeat; z-index: 0;
+  }
+  #graphic .gradient {
+    position: absolute; inset: 0; z-index: 1; pointer-events: none;
+    background: linear-gradient(180deg,
+      rgba(0,0,0,0) 38%,
+      rgba(0,0,0,0.35) 60%,
+      rgba(0,0,0,0.78) 84%,
+      rgba(0,0,0,0.92) 100%);
+  }
+  #graphic .flo-bug { position: absolute; top: 44px; right: 48px; z-index: 3; height: 60px; pointer-events: none; }
+  #graphic .flo-bug img { height: 100%; display: block; }
+
+  #graphic .lower { position: absolute; left: 64px; right: 64px; bottom: 84px; z-index: 3; pointer-events: none; }
+  #graphic .chevron { height: 30px; margin-bottom: 22px; display: block; }
+  #graphic .headline {
+    font-family: var(--font-display);
+    font-weight: 900;
+    line-height: 1.02;
+    letter-spacing: -0.01em;
+    color: #fff;
+    text-shadow: 0 2px 14px rgba(0,0,0,0.45);
+    margin: 0;
+    overflow-wrap: break-word;
+    text-transform: capitalize;  /* first letter of each word up; rest as typed (e.g. McKim) */
+  }
+  #graphic .credit {
+    position: absolute; right: 64px; bottom: 34px; z-index: 3; pointer-events: none;
+    font-size: 14px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
+    color: rgba(255,255,255,0.7);
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="panel">
+    <a class="back" href="../index.html">&lsaquo; All templates</a>
+    <h1>Headline Graphic</h1>
+    <p class="hint">Drop a photo, write a headline, drag to frame, export a PNG.</p>
+
+    <label>Headline</label>
+    <textarea id="headlineInput">52 Drivers Entered for Super Dirt Cup at Skagit</textarea>
+
+    <label>Max lines (text auto-sizes to fit)</label>
+    <select id="linesSelect">
+      <option value="1">1 line</option>
+      <option value="2" selected>2 lines</option>
+      <option value="3">3 lines</option>
+    </select>
+
+    <label>Photo</label>
+    <input type="file" id="photoInput" accept="image/*">
+
+    <div class="rangelabel"><span>Zoom</span><span id="zoomVal">100%</span></div>
+    <input type="range" id="zoomRange" min="40" max="300" value="100">
+    <div style="margin-top:8px;"><span class="link" id="resetPos">Reset position</span></div>
+    <p class="hint" style="margin-top:8px;">Drag the photo in the preview to reposition.</p>
+
+    <div class="section-divider"></div>
+
+    <label>Photo credit</label>
+    <input type="text" id="creditInput" value="Chad Warner Photo">
+
+    <label>Export dimensions</label>
+    <select id="exportDims">
+      <option value="1080x1350" selected>1080 x 1350 (Portrait 4:5)</option>
+      <option value="1080x1080">1080 x 1080 (Square)</option>
+    </select>
+
+    <button id="downloadBtn">Download PNG</button>
+  </div>
+
+  <div class="preview-wrap">
+    <div id="stage-frame">
+      <div id="stage-scaler">
+        <div id="graphic">
+        <div class="photo" id="photoLayer"></div>
+        <div class="gradient"></div>
+        <div class="flo-bug"><img src="../assets/social/flo-bug.png" alt="FLO"></div>
+        <div class="lower">
+          <img class="chevron" src="../assets/social/chevron-stripes.png" alt="">
+          <h2 class="headline" id="headlineDisplay"></h2>
+        </div>
+        <div class="credit" id="creditDisplay"></div>
+        </div>
+      </div>
+    </div>
+    <div class="zoom-controls">
+      <button id="zoomOut" title="Zoom out">&minus;</button>
+      <button class="fit" id="zoomFit" title="Fit to frame">Fit</button>
+      <button id="zoomIn" title="Zoom in">+</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const graphic = document.getElementById('graphic');
+const photoLayer = document.getElementById('photoLayer');
+
+// Export dimensions
+let EXPORT_W = 1080, EXPORT_H = 1350;
+
+// Photo state, baked to pixels so drag/zoom framing survives html2canvas export.
+let photo = { img: null, zoom: 1, offsetX: 0, offsetY: 0 };
+
+function setDims() {
+  const [w, h] = document.getElementById('exportDims').value.split('x').map(n => parseInt(n, 10));
+  EXPORT_W = w; EXPORT_H = h;
+  graphic.style.width = w + 'px';
+  graphic.style.height = h + 'px';
+  fitStage();
+  clampOffsets();
+  bakePhoto();
+  fitHeadline();
+}
+
+// Scale the 1080px stage down to fit the preview pane. previewZoom (manual
+// +/- buttons) multiplies on top of the fit scale; null = auto-fit.
+let previewZoom = null;
+function fitScale() {
+  const wrap = document.querySelector('.preview-wrap');
+  // Leave generous margin (and room for the zoom bar) so it sits comfortably.
+  const avail = wrap.clientHeight - 96;
+  const availW = wrap.clientWidth - 64;
+  return Math.min(avail / EXPORT_H, availW / EXPORT_W, 1);
+}
+function fitStage() {
+  const scale = previewZoom != null ? previewZoom : fitScale();
+  document.getElementById('stage-scaler').style.transform = `scale(${scale})`;
+  // Frame takes the *scaled* size so the layout footprint matches what's shown
+  // (transform alone doesn't shrink the box) — keeps the canvas compact and the
+  // zoom bar tucked right beneath it.
+  const frame = document.getElementById('stage-frame');
+  frame.style.width = (EXPORT_W * scale) + 'px';
+  frame.style.height = (EXPORT_H * scale) + 'px';
+  graphic._stageScale = scale;
+}
+document.getElementById('zoomIn').addEventListener('click', () => {
+  previewZoom = Math.min(2, (previewZoom != null ? previewZoom : fitScale()) + 0.15);
+  fitStage();
+});
+document.getElementById('zoomOut').addEventListener('click', () => {
+  previewZoom = Math.max(0.1, (previewZoom != null ? previewZoom : fitScale()) - 0.15);
+  fitStage();
+});
+document.getElementById('zoomFit').addEventListener('click', () => { previewZoom = null; fitStage(); });
+
+// Keep the photo covering the frame: clamp offsets so no empty edges show.
+function clampOffsets() {
+  if (!photo.img) return;
+  const cover = Math.max(EXPORT_W / photo.img.naturalWidth, EXPORT_H / photo.img.naturalHeight);
+  const eff = cover * photo.zoom;
+  const drawW = photo.img.naturalWidth * eff;
+  const drawH = photo.img.naturalHeight * eff;
+  // abs() so below-cover (zoomed-out) photos can still be dragged within the
+  // frame — e.g. pushed up to the top margin — not locked to center.
+  const maxX = Math.abs(drawW - EXPORT_W) / 2;
+  const maxY = Math.abs(drawH - EXPORT_H) / 2;
+  photo.offsetX = Math.max(-maxX, Math.min(maxX, photo.offsetX));
+  photo.offsetY = Math.max(-maxY, Math.min(maxY, photo.offsetY));
+}
+
+// Draw the photo at the chosen zoom/offset onto an export-sized canvas, then
+// hand the baked image to the .photo layer. Guarantees preview === export.
+let bakeQueued = false;
+function bakePhoto() {
+  if (!photo.img) return;
+  bakeQueued = false;
+  const c = document.createElement('canvas');
+  c.width = EXPORT_W; c.height = EXPORT_H;
+  const ctx = c.getContext('2d');
+  // Fill Flo Black first so zooming below cover leaves clean brand-black edges.
+  ctx.fillStyle = '#121212';
+  ctx.fillRect(0, 0, EXPORT_W, EXPORT_H);
+  const cover = Math.max(EXPORT_W / photo.img.naturalWidth, EXPORT_H / photo.img.naturalHeight);
+  const eff = cover * photo.zoom;
+  const drawW = photo.img.naturalWidth * eff;
+  const drawH = photo.img.naturalHeight * eff;
+  const dx = (EXPORT_W - drawW) / 2 + photo.offsetX;
+  const dy = (EXPORT_H - drawH) / 2 + photo.offsetY;
+  ctx.drawImage(photo.img, dx, dy, drawW, drawH);
+  photoLayer.style.backgroundImage = `url('${c.toDataURL('image/jpeg', 0.92)}')`;
+}
+function queueBake() {
+  if (bakeQueued) return;
+  bakeQueued = true;
+  requestAnimationFrame(bakePhoto);
+}
+
+function loadPhoto(src) {
+  const img = new Image();
+  img.onload = () => {
+    photo.img = img; photo.offsetX = 0; photo.offsetY = 0;
+    clampOffsets();
+    bakePhoto();
+  };
+  img.src = src;
+}
+
+// Auto-size the headline to the largest font that fits within the chosen
+// max line count (and the box width). Fewer allowed lines => smaller text for
+// a long headline. It's a cap, not a target: short text stays on one line.
+function fitHeadline() {
+  const el = document.getElementById('headlineDisplay');
+  el.textContent = document.getElementById('headlineInput').value;
+  const maxLines = parseInt(document.getElementById('linesSelect').value, 10);
+  const boxW = el.parentElement.clientWidth;
+  const maxH = EXPORT_H * 0.5;
+  const lineCount = () => {
+    const lh = parseFloat(getComputedStyle(el).lineHeight) || 1;
+    return Math.round(el.scrollHeight / lh);
+  };
+  let size = 130;
+  el.style.fontSize = size + 'px';
+  // Bigger font wraps to more lines; shrink until within the line cap + box.
+  while (size > 22 && (lineCount() > maxLines || el.scrollWidth > boxW || el.scrollHeight > maxH)) {
+    size -= 2;
+    el.style.fontSize = size + 'px';
+  }
+}
+
+/* ---- Drag to reposition ---- */
+let drag = null;
+graphic.addEventListener('pointerdown', (e) => {
+  if (!photo.img) return;
+  graphic.classList.add('dragging');
+  graphic.setPointerCapture(e.pointerId);
+  drag = { x: e.clientX, y: e.clientY, ox: photo.offsetX, oy: photo.offsetY };
+});
+graphic.addEventListener('pointermove', (e) => {
+  if (!drag) return;
+  const s = graphic._stageScale || 1;
+  photo.offsetX = drag.ox + (e.clientX - drag.x) / s;
+  photo.offsetY = drag.oy + (e.clientY - drag.y) / s;
+  clampOffsets();
+  queueBake();
+});
+graphic.addEventListener('pointerup', () => { drag = null; graphic.classList.remove('dragging'); });
+graphic.addEventListener('pointercancel', () => { drag = null; graphic.classList.remove('dragging'); });
+
+/* ---- Controls ---- */
+document.getElementById('headlineInput').addEventListener('input', fitHeadline);
+document.getElementById('linesSelect').addEventListener('change', fitHeadline);
+document.getElementById('creditInput').addEventListener('input', () => {
+  document.getElementById('creditDisplay').textContent = document.getElementById('creditInput').value;
+});
+document.getElementById('zoomRange').addEventListener('input', (e) => {
+  photo.zoom = parseInt(e.target.value, 10) / 100;
+  document.getElementById('zoomVal').textContent = e.target.value + '%';
+  clampOffsets();
+  queueBake();
+});
+document.getElementById('resetPos').addEventListener('click', () => {
+  photo.zoom = 1; photo.offsetX = 0; photo.offsetY = 0;
+  document.getElementById('zoomRange').value = 100;
+  document.getElementById('zoomVal').textContent = '100%';
+  bakePhoto();
+});
+document.getElementById('photoInput').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => loadPhoto(ev.target.result);
+  reader.readAsDataURL(file);
+});
+document.getElementById('exportDims').addEventListener('change', setDims);
+window.addEventListener('resize', fitStage);
+
+document.getElementById('downloadBtn').addEventListener('click', () => {
+  html2canvas(graphic, { width: EXPORT_W, height: EXPORT_H, scale: 1, useCORS: true })
+    .then(canvas => {
+      const link = document.createElement('a');
+      const name = (document.getElementById('headlineInput').value || 'headline')
+        .replace(/[^a-z0-9]+/gi, '_').replace(/^_|_$/g, '').slice(0, 60) || 'headline';
+      link.download = name + '.png';
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    });
+});
+
+/* ---- Init ---- */
+document.getElementById('creditDisplay').textContent = document.getElementById('creditInput').value;
+// Start at half the fit scale so the canvas opens compact.
+previewZoom = fitScale() * 0.75;
+setDims();
+loadPhoto('../assets/social/sample-driver.jpg');
+fitHeadline();
+window.addEventListener('load', () => { previewZoom = fitScale() * 0.75; fitStage(); fitHeadline(); });
+</script>
+</body>
+</html>
