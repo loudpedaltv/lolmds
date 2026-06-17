@@ -773,6 +773,15 @@ document.getElementById('exportDims').addEventListener('change', renderGraphic);
 
 document.getElementById('downloadBtn').addEventListener('click', () => {
   const graphic = document.getElementById('graphic');
+  // html2canvas mis-handles the ancestor preview-zoom transform, so render at
+  // true 1:1 during capture, then restore the preview.
+  const scaler = document.getElementById('stage-scaler');
+  const frame = document.getElementById('stage-frame');
+  const prev = { t: scaler.style.transform, w: frame.style.width, h: frame.style.height };
+  scaler.style.transform = 'none';
+  frame.style.width = graphic.offsetWidth + 'px';
+  frame.style.height = graphic.offsetHeight + 'px';
+  const restore = () => { scaler.style.transform = prev.t; frame.style.width = prev.w; frame.style.height = prev.h; };
   html2canvas(graphic, {
     width: graphic.offsetWidth,
     height: graphic.offsetHeight,
@@ -783,7 +792,7 @@ document.getElementById('downloadBtn').addEventListener('click', () => {
     link.download = (document.getElementById('raceTitle').value || 'race-graphic').replace(/\s+/g, '_') + '.png';
     link.href = canvas.toDataURL('image/png');
     link.click();
-  });
+  }).finally(restore);
 });
 
 // ---- Preview fit + zoom ----

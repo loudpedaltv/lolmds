@@ -357,6 +357,15 @@ document.getElementById('exportDims').addEventListener('change', setDims);
 window.addEventListener('resize', fitStage);
 
 document.getElementById('downloadBtn').addEventListener('click', () => {
+  // html2canvas mis-handles an ancestor CSS transform (the preview zoom), so
+  // render the stage at true 1:1 during capture, then restore the preview.
+  const scaler = document.getElementById('stage-scaler');
+  const frame = document.getElementById('stage-frame');
+  const prev = { t: scaler.style.transform, w: frame.style.width, h: frame.style.height };
+  scaler.style.transform = 'none';
+  frame.style.width = EXPORT_W + 'px';
+  frame.style.height = EXPORT_H + 'px';
+  const restore = () => { scaler.style.transform = prev.t; frame.style.width = prev.w; frame.style.height = prev.h; };
   html2canvas(graphic, { width: EXPORT_W, height: EXPORT_H, scale: 1, useCORS: true })
     .then(canvas => {
       const link = document.createElement('a');
@@ -365,7 +374,8 @@ document.getElementById('downloadBtn').addEventListener('click', () => {
       link.download = name + '.png';
       link.href = canvas.toDataURL('image/png');
       link.click();
-    });
+    })
+    .finally(restore);
 });
 
 /* ---- Init ---- */
